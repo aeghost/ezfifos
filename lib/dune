@@ -1,0 +1,7 @@
+(library
+ (name ezfifos)
+ (public_name ezfifos)
+ (modules ezfifos)
+ (libraries lwt.unix lwt fileutils)
+ (preprocess
+  (pps lwt_ppx)))

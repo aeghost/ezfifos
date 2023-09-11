@@ -6,8 +6,8 @@ description: "Read Linux FIFOs, Write in Linux FIFOs"
 maintainer: ["Matthieu GOSSET matthieu.gosset.dev@outlook.com"]
 authors: ["Matthieu GOSSET matthieu.gosset.dev@outlook.com"]
 license: "MIT"
-homepage: "https://github.com/aeghost/ezfifos"
-bug-reports: "https://github.com/aeghost/ezfifos/issues"
+homepage: "https://github.com/aeghost/ezfifos-lwt"
+bug-reports: "https://github.com/aeghost/ezfifos-lwt/issues"
 depends: [
   "dune" {>= "2.8"}
   "lwt" {>= "4.0.0"}
@@ -28,4 +28,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/aeghost/ezfifos.git"
+dev-repo: "git+https://github.com/aeghost/ezfifos-lwt.git"

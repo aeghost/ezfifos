@@ -1,4 +1,4 @@
-(** EZFIFOS
+(** EZFIFOS-LWT
     @copyright 2023 MIT -- NO RIGHTS RESERVED. Deal with it !
     @author Matthieu GOSSET
     @maintainers

@@ -1,10 +1,10 @@
-(** EZFIFOS
+(** EZFIFOS-LWT
     @copyright None
     @author Matthieu GOSSET
     @maintainers
       Matthieu GOSSET <matthieu.gosset.dev@outlook.com>
     @purpose
-      Declare EZFIFOS LIB interface
+      Declare EZFIFOS_LWT LIB interface
 *)
 
 (** [listen ~callback path] bind [~callback] to read datas at [path],

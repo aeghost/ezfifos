@@ -1,10 +1,12 @@
-# EZFifos
+# EZ-FIFOs with LWT
 
 ## Objectives
 
-Simply read Linux Fifos as much as you want
+Read FileDescr FIFOs efficiantly.
+Asynchronous programming needs async, LWT or EIO.
+And LWT is compatible with EIO through Lwt_eio lib, and Async.
 
-EZ to do, so EZ to use.
+EZ to do, so it should stay EZ to use.
 
 ## Usage
 
@@ -14,7 +16,7 @@ Read:
 let do_something = print_endline
 
 let read () =
-  Ezfifos.listen
+  Ezfifos_lwt.listen
     ~callback:(fun s ->
         let () = do_something s in
         Lwt.return_unit)
@@ -30,7 +32,7 @@ Write:
 
 ```ocaml
 let write () =
-    Ezfifos.write ~path:"/path/to/fifo" "datas"
+    Ezfifos_lwt.write ~path:"/path/to/fifo" "datas"
 
 let () =
     Lwt_main.run (write ())
@@ -38,7 +40,7 @@ let () =
 
 ## Notes
 
-It scales (tested with millions of R/W in CrossinG® main workload with 2 parrallels FIFOs)
+It scales (tested with millions of R/W in [CrossinG®](https://www.chapsvision.com/softwares-data/cybersecurity-crossing/) main workload)
 
 BUT I assumed you won't bind hundred thousands of FIFOs so Fifos_database is just a simple List,
 

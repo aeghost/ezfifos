@@ -3,7 +3,9 @@
 ## Objectives
 
 Read FileDescr FIFOs efficiantly.
-Asynchronous programming needs async, LWT or EIO.
+
+Asynchronous programming needs Async, LWT or EIO.
+
 And LWT is compatible with EIO through Lwt_eio lib, and Async.
 
 EZ to do, so it should stay EZ to use.

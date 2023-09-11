@@ -19,5 +19,7 @@
  (depends
   (lwt
    (>= 4.0.0))
+  (lwt_ppx
+   (>= 2.0.0))
   (fileutils
    (>= 0.6.0))))

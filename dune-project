@@ -6,7 +6,7 @@
 
 (package
  (name ezfifos-lwt)
- (version 0.1.2)
+ (version 0.2.0)
  (synopsis "A simple way to read Linux's FIFOs")
  (description "Read Linux FIFOs, Write in Linux FIFOs")
  (license "MIT")
@@ -18,7 +18,7 @@
  (bug_reports "https://github.com/aeghost/ezfifos-lwt/issues")
  (depends
   (lwt
-   (>= 4.0.0))
+   (>= 5.0.0))
   (lwt_ppx
    (>= 2.0.0))
   (fileutils

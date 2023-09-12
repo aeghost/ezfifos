@@ -31,7 +31,8 @@ module List_db : DB
 
   let db : t ref = ref []
 
-  let add (t: elt) = db := t :: !db
+  let add (t: elt) =
+    db := t :: !db
   let remove ~callback discriminator =
     db := List.filter
         (fun t ->
@@ -52,6 +53,8 @@ module Driver (Db : DB
   exception Fifo_read_error of exn
   exception Fifo_write_error of exn
 
+  let master_switch = ref true
+
   let add_listener ~path f = Db.add { path; thread = f }
 
   (** [initialize ?(soft = false) ~path ()] initialize the fifo at [~path],
@@ -68,12 +71,21 @@ module Driver (Db : DB
     | true -> FileUtil.(rm  ~recurse:true ~force:Force [ path ] ); create_fifo ()
     | false -> create_fifo ()
 
+  let terminate (t: listener) =
+    Lwt.cancel t.thread;
+    if Sys.file_exists t.path then
+      FileUtil.(rm ~recurse:true ~force:Force [ t.path ])
+    else ()
+
+  let close path =
+    Db.remove ~callback:terminate path
+
   let read ~path () : string Lwt.t =
     let rec loop () =
       let buffer_size = 1024 in
       let buffer = Bytes.create buffer_size in
       try%lwt
-        let%lwt file_descr = Lwt_unix.openfile path [ O_RDONLY ] 0 in
+        let%lwt file_descr = Lwt_unix.openfile path [ O_RDONLY; O_CREAT ] 0 in
         let%lwt size = Lwt_unix.read file_descr buffer 0 buffer_size in
         Lwt_unix.close file_descr;%lwt
         match size with
@@ -85,9 +97,7 @@ module Driver (Db : DB
     in
     loop ()
 
-  (** [listen ~callback path] bind [~callback] to read datas at [path],
-      it raised Fifo_read_error of exn if it fails *)
-  let listen ~(callback: string -> unit Lwt.t) path =
+  let background_read ~(callback: string -> unit Lwt.t) path =
     let () = initialize ~path () in
     let waiter, wakener = Lwt.task () in
     let rec thread () =
@@ -98,24 +108,42 @@ module Driver (Db : DB
     add_listener ~path (let%lwt () = waiter in thread ());
     Lwt.wakeup wakener ()
 
-  (** [write ~path datas] write [datas] in fifos at [path], it uses Lwt_io.with_file, exceptions are wrapped in [exn Fifo_write_error] *)
+  let read_once ~(callback: string -> unit Lwt.t) path =
+    let () = close path in
+    let callback s =
+      let%lwt () = callback s in
+      let%lwt () = Lwt.pause () in
+      let () = close path in
+      Lwt.return_unit
+    in
+    let () = background_read ~callback path in
+    let%lwt () = Lwt.pause () in
+    Lwt.return_unit
+
+  let listen ?(stop = ref false) ~(callback: string -> unit Lwt.t) path =
+    let () = background_read ~callback path in
+    let () = if not !master_switch then master_switch := true in
+    let%lwt () =
+      while%lwt not !stop && !master_switch do
+        Lwt.pause ()
+      done
+    in
+    let () = close path in
+    Lwt.pause ()
+
   let write ~path datas =
     try
-      Lwt_io.with_file ~mode:(Lwt_io.Output) path (fun oc -> Lwt_io.fprint oc datas)
+      Lwt_io.with_file ~flags:Unix.[ O_CREAT; O_WRONLY; O_NONBLOCK ] ~mode:(Lwt_io.Output) path (fun oc -> Lwt_io.fprint oc datas)
     with e -> Lwt.fail (Fifo_write_error e)
 
-  let terminate (t: listener) =
-    Lwt.cancel t.thread;
-    if Sys.file_exists t.path then
-      FileUtil.(rm  ~recurse:true ~force:Force [ t.path ] )
-    else ()
-
-  let stop path =
-    Db.remove ~callback:terminate path
-
   let stop_all () =
+    master_switch := false;
     Db.clear ~callback:terminate ()
+
 end
 
 module Ezfifos = Driver(List_db)
 include Ezfifos
+
+let () =
+  Lwt_main.at_exit stop_all

@@ -102,19 +102,26 @@ module Driver (Db : DB
     in
     Db.remove ~callback path
 
-  let read ?(seq = true) callback path =
-    Lwt_io.(with_file ~mode:Input) ~flags:Unix.[ O_RDONLY; O_CREAT ] path
+  let another_read ?(seq = true) callback path = try
+      let%lwt fd = Lwt_unix.openfile path [ O_RDONLY ] 0 in
+      let lines = Lwt_io.(read_lines (of_fd ~mode:Input fd)) in
+      let%lwt () = Lwt_stream.(if seq then iter_s else iter_p) (fun s -> callback s) lines in
+      Lwt_unix.close fd
+    with e -> raise (Fifo_read_error e)
+
+  (* let _read ?(seq = true) callback path =
+     Lwt_io.(with_file ~mode:Input) ~flags:Unix.[ O_RDONLY; O_CREAT ] path
       (fun ic -> try
           let res = Lwt_io.(read_lines ic) in
           let () = Lwt.async (fun () -> Lwt_stream.(if seq then iter_s else iter_p) (fun s -> callback s) res) in
           Lwt.return_unit
-        with e -> raise (Fifo_read_error e))
+        with e -> raise (Fifo_read_error e)) *)
 
   let background_read ?seq ~(callback: string -> unit Lwt.t) path =
     let%lwt () = initialize ~path () in
     let waiter, wakener = Lwt.task () in
     let rec thread () =
-      let%lwt () = read ?seq callback path in
+      let%lwt () = another_read ?seq callback path in
       thread ()
     in
     add_listener ~path (let%lwt () = waiter in thread ());
@@ -138,7 +145,7 @@ module Driver (Db : DB
     let () = if not !master_switch then master_switch := true in
     let%lwt () =
       while%lwt not !stop && !master_switch do
-        Lwt.pause ()
+        Lwt_unix.(sleep 1.)
       done
     in
     let%lwt () = close path in
@@ -146,7 +153,7 @@ module Driver (Db : DB
 
   let write ~path datas =
     try
-      Lwt_io.(with_file ~mode:Output) ~flags:Unix.[ O_CREAT; O_WRONLY; O_NONBLOCK ] path (fun oc -> Lwt_io.fprint oc datas)
+      Lwt_io.(with_file ~mode:Output) ~flags:Unix.[ O_CREAT; O_WRONLY; O_NONBLOCK; O_APPEND ] path (fun oc -> Lwt_io.fprint oc datas)
     with e -> Lwt.fail (Fifo_write_error e)
 
   let stop_all () =

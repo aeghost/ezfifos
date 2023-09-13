@@ -22,7 +22,6 @@ let close () =
 let stop = ref false
 let callback = function
     s when Str.string_match (Str.regexp "stop") s 0 ->
-    Ezfifos_lwt.close fifo_path;%lwt
     stop := true;
     Lwt.pause ()
   | s ->

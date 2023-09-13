@@ -74,9 +74,6 @@ module Driver (Db : DB
 
   let add_listener ~path thread = Db.add { path; thread }
 
-  (* let get_ic () = Lwt_io.(open_file ~mode:Input) ~flags:Unix.[ O_RDONLY; O_CREAT ] path
-     let close_ic ic = Lwt_io.( ~mode:Input) ~flags:Unix.[ O_RDONLY; O_CREAT ] path  *)
-
   (** [initialize ?(soft = false) ~path ()] initialize the fifo at [~path],
       - creates the file if it does not exist
       - rm and creates it correctly if it exists, except if you set [?soft] at [true]
@@ -87,8 +84,7 @@ module Driver (Db : DB
       Unix.chmod path 0o666
     in
     let%lwt () = match Sys.file_exists path with
-      | true when soft ->
-        Lwt.return_unit
+      | true when soft -> Lwt.return_unit
       | true ->
         let () = remove_file path in
         let () = create_fifo () in
@@ -109,7 +105,6 @@ module Driver (Db : DB
   let read ?(seq = true) callback path =
     Lwt_io.(with_file ~mode:Input) ~flags:Unix.[ O_RDONLY; O_CREAT ] path
       (fun ic -> try
-          Fmt.pr "ici@.";
           let res = Lwt_io.(read_lines ic) in
           let () = Lwt.async (fun () -> Lwt_stream.(if seq then iter_s else iter_p) (fun s -> callback s) res) in
           Lwt.return_unit
@@ -151,7 +146,7 @@ module Driver (Db : DB
 
   let write ~path datas =
     try
-      Lwt_io.(with_file ~mode:Output) ~flags:Unix.[ O_CREAT; O_WRONLY; O_NONBLOCK ] path (fun oc -> Fmt.pr "là@."; Lwt_io.fprint oc datas)
+      Lwt_io.(with_file ~mode:Output) ~flags:Unix.[ O_CREAT; O_WRONLY; O_NONBLOCK ] path (fun oc -> Lwt_io.fprint oc datas)
     with e -> Lwt.fail (Fifo_write_error e)
 
   let stop_all () =

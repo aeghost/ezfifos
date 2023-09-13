@@ -12,65 +12,55 @@ EZ to do, so it should stay EZ to use.
 
 ## Usage
 
-Background-read:
-
-The `background_read` function declare a passive thread that will `read` and bind `callback` to the read result.
-It will be executed if the binary has nothing to do (`Lwt.pause ()`).
+### Background-read
 
 ```ocaml
-let do_something s =
-  print_endline s;
-  Lwt.return_unit
-
-let declare_thread () =
-  Lwt.join [ Ezfifos_lwt.(background_read ~callback:do_something "/path/to/fifo") ]
+let () =
+  Ezfifos_lwt.background_read ~callback:(fun s -> print_endline s; Lwt.return_unit) "/path/to/fifo"
 ```
 
-Listen-passive server:
+The `background_read` function will declare a passive thread that will `read` and bind `callback` to the read result.
 
-The `listen` function declare a non-stopping, non-blockant server that will bind `callback` to read result.
+It will be executed if the binary has nothing to do (`Lwt.pause ()`).
+
+### Listen-passive server
+
+```ocaml
+let stop = ref false
+let callback s = print_endline s; Lwt.return_unit
+
+let server () = Ezfifos_lwt.listen ~stop ~callback "/path/to/fifo"
+
+let () =
+  Lwt_main.run Lwt.(join [ server (); ... ])
+```
+
+The `listen` function will declare a non-stopping, non-blockant server that will bind `callback` to read result.
 
 It will run until FIFO is empty and then wait for more.
 
-It will be closed `at_exit` or when calling close `path` or `stop_all`.
+It will be closed `at_exit` or when calling `close path` or `stop_all ()`.
+
+You can stop it by switching the `stop` ref to `true`
+
+### Read once
 
 ```ocaml
-let should_stop = ref false
-let do_something s = print_endline s; Lwt.return_unit
-
-let server () =
-  Lwt.join [ Ezfifos_lwt.(listen ~stop:should_stop ~callback:do_something "/path/to/fifo") ]
-```
-
-Read once:
-
-It will empty FIFO once, bind result to `callback` then stop.
-
-```ocaml
-let do_something = print_endline
-
-let read () =
-  Ezfifos_lwt.read_once
-    ~callback:(fun s ->
-        let () = do_something s in
-        Lwt.return_unit)
-    "/path/to/fifo"
-
 let () =
-    Lwt_main.run (read ())
+  Lwt_main.run
+    Ezfifos_lwt.(read_once ~callback:(fun s -> print_endline s; Lwt.return_unit) "/path/to/fifo")
 ```
 
-Write:
+It will empty FIFO once, bind result to `callback` then stop, similar as `Lwt_io.read` & `FileUtils.rm` but slower, but available.
+
+### Write
+
+```ocaml
+let () =
+  Lwt_main.run Ezfifos_lwt.(write ~path:"/path/to/fifo" "datas")
+```
 
 It will write `datas` to FIFO, similar to `Printf.fprintf`, doubted to add the fun, but at least it is using cool `Lwt_io`.
-
-```ocaml
-let write () =
-    Ezfifos_lwt.write ~path:"/path/to/fifo" "datas"
-
-let () =
-    Lwt_main.run (write ())
-```
 
 ## Notes
 

@@ -1,0 +1,4 @@
+- Add Server feature
+- Add better README
+
+- TODO: repair TESTS: It fails because Lwt.with_file, can't be called in In and Out in the same file (maybe limitation of Lwt implementation)

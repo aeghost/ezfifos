@@ -1,0 +1,79 @@
+opam-version: "2.0"
+compiler: ["ocaml-base-compiler.4.10.0"]
+roots: [
+  "ezfifos-lwt.0.2.0"
+  "ocaml-base-compiler.4.10.0"
+  "ocaml-lsp-server.1.4.1"
+  "ocp-indent.1.8.1"
+]
+installed: [
+  "base-bigarray.base"
+  "base-bytes.base"
+  "base-threads.base"
+  "base-unix.base"
+  "cmdliner.1.2.0"
+  "cppo.1.6.9"
+  "csexp.1.5.2"
+  "dot-merlin-reader.4.5"
+  "dune.3.10.0"
+  "dune-build-info.3.10.0"
+  "dune-configurator.3.10.0"
+  "ezfifos-lwt.0.2.0"
+  "fileutils.0.6.4"
+  "lwt.5.6.1"
+  "lwt_ppx.2.1.0"
+  "ocaml.4.10.0"
+  "ocaml-base-compiler.4.10.0"
+  "ocaml-compiler-libs.v0.12.4"
+  "ocaml-config.1"
+  "ocaml-lsp-server.1.4.1"
+  "ocamlfind.1.9.6"
+  "ocp-indent.1.8.1"
+  "ocplib-endian.1.2"
+  "ppx_derivers.1.2.1"
+  "ppx_yojson_conv_lib.v0.15.0"
+  "ppxlib.0.30.0"
+  "result.1.5"
+  "seq.base"
+  "sexplib0.v0.16.0"
+  "stdlib-shims.0.3.0"
+  "yojson.2.1.0"
+]
+pinned: "ezfifos-lwt.0.2.0"
+package "ezfifos-lwt" {
+  opam-version: "2.0"
+  version: "0.2.0"
+  synopsis: "A simple way to read Linux's FIFOs"
+  description: "Read Linux FIFOs, Write in Linux FIFOs"
+  maintainer: "Matthieu GOSSET matthieu.gosset.dev@outlook.com"
+  authors: "Matthieu GOSSET matthieu.gosset.dev@outlook.com"
+  license: "MIT"
+  homepage: "https://github.com/aeghost/ezfifos-lwt"
+  bug-reports: "https://github.com/aeghost/ezfifos-lwt/issues"
+  depends: [
+    "dune" {>= "2.8"}
+    "lwt" {>= "5.0.0"}
+    "lwt_ppx" {>= "2.0.0"}
+    "fileutils" {>= "0.6.0"}
+    "odoc" {with-doc}
+  ]
+  build: [
+    ["dune" "subst"] {dev}
+    [
+      "dune"
+      "build"
+      "-p"
+      name
+      "-j"
+      jobs
+      "@install"
+      "@runtest" {with-test}
+      "@doc" {with-doc}
+    ]
+  ]
+  dev-repo: "git+https://github.com/aeghost/ezfifos-lwt.git"
+  url {
+    src:
+      "git+file:///home/matt/Documents/projects/ocaml/ezfifos/ezfifos#main"
+  }
+}

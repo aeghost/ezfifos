@@ -13,8 +13,8 @@ module type DB = sig
   type discriminator
   val db : t ref
   val add : elt -> unit
-  val remove : callback:(elt -> unit) -> discriminator -> unit
-  val clear :  callback:(elt -> unit) -> unit -> unit Lwt.t
+  val remove : callback:(elt -> unit Lwt.t) -> discriminator -> unit Lwt.t
+  val clear : unit -> unit Lwt.t
 end
 
 type listener = {
@@ -22,9 +22,16 @@ type listener = {
   thread: unit Lwt.t;
 }
 
+let remove_file p = try
+    Sys.remove p
+  with _ ->
+    FileUtil.(rm ~force:Force) ~recurse:true [ p ]
+
 module List_db : DB
+  with type t = listener list
   with type elt = listener
    and type discriminator = string = struct
+
   type t = listener list
   type elt = listener
   type discriminator = string
@@ -33,29 +40,42 @@ module List_db : DB
 
   let add (t: elt) =
     db := t :: !db
-  let remove ~callback discriminator =
-    db := List.filter
-        (fun t ->
-           if t.path = discriminator then
-             callback t;
-           t.path <> discriminator) !db
 
-  let clear ~callback () =
-    let%lwt () = Lwt_list.iter_p (fun t ->
-        callback t;
-        Lwt.return_unit) !db in
+  let remove ~callback discriminator =
+
+    let remove_callback t =
+      let%lwt () = if t.path = discriminator then
+          let%lwt () = callback t in
+          Lwt.return_unit
+        else
+          Lwt.return_unit
+      in
+      Lwt.return (t.path <> discriminator)
+    in
+
+    let%lwt l = Lwt_list.filter_s remove_callback !db in
+    let () = db := l in
     Lwt.return_unit
+
+  let clear () =
+    let () = db := [] in
+    Lwt.return_unit
+
 end
 
 module Driver (Db : DB
-               with type elt = listener
+               with type t = listener list
+                and type elt = listener
                 and type discriminator = string) = struct
   exception Fifo_read_error of exn
   exception Fifo_write_error of exn
 
   let master_switch = ref true
 
-  let add_listener ~path f = Db.add { path; thread = f }
+  let add_listener ~path thread = Db.add { path; thread }
+
+  (* let get_ic () = Lwt_io.(open_file ~mode:Input) ~flags:Unix.[ O_RDONLY; O_CREAT ] path
+     let close_ic ic = Lwt_io.( ~mode:Input) ~flags:Unix.[ O_RDONLY; O_CREAT ] path  *)
 
   (** [initialize ?(soft = false) ~path ()] initialize the fifo at [~path],
       - creates the file if it does not exist
@@ -66,84 +86,80 @@ module Driver (Db : DB
       Unix.mkfifo path 0o666;
       Unix.chmod path 0o666
     in
-    match Sys.file_exists path with
-    | true when soft -> ()
-    | true -> FileUtil.(rm  ~recurse:true ~force:Force [ path ] ); create_fifo ()
-    | false -> create_fifo ()
-
-  let terminate (t: listener) =
-    Lwt.cancel t.thread;
-    if Sys.file_exists t.path then
-      FileUtil.(rm ~recurse:true ~force:Force [ t.path ])
-    else ()
+    let%lwt () = match Sys.file_exists path with
+      | true when soft ->
+        Lwt.return_unit
+      | true ->
+        let () = remove_file path in
+        let () = create_fifo () in
+        Lwt.return_unit
+      | false -> create_fifo ();
+        Lwt.return_unit
+    in
+    Lwt.return_unit
 
   let close path =
-    Db.remove ~callback:terminate path
-
-  let read ~path () : string Lwt.t =
-    let rec loop () =
-      let buffer_size = 1024 in
-      let buffer = Bytes.create buffer_size in
-      try%lwt
-        let%lwt file_descr = Lwt_unix.openfile path [ O_RDONLY; O_CREAT ] 0 in
-        let%lwt size = Lwt_unix.read file_descr buffer 0 buffer_size in
-        Lwt_unix.close file_descr;%lwt
-        match size with
-        | 0 -> loop ()
-        | n ->
-          Bytes.sub_string buffer 0 n
-          |> Lwt.return
-      with e -> Lwt.fail (Fifo_read_error e)
+    let callback t =
+      let () = Lwt.cancel t.thread in
+      let () = remove_file t.path in
+      Lwt.return_unit
     in
-    loop ()
+    Db.remove ~callback path
 
-  let background_read ~(callback: string -> unit Lwt.t) path =
-    let () = initialize ~path () in
+  let read ?(seq = true) callback path =
+    Lwt_io.(with_file ~mode:Input) ~flags:Unix.[ O_RDONLY; O_CREAT ] path
+      (fun ic -> try
+          Fmt.pr "ici@.";
+          let res = Lwt_io.(read_lines ic) in
+          let () = Lwt.async (fun () -> Lwt_stream.(if seq then iter_s else iter_p) (fun s -> callback s) res) in
+          Lwt.return_unit
+        with e -> raise (Fifo_read_error e))
+
+  let background_read ?seq ~(callback: string -> unit Lwt.t) path =
+    let%lwt () = initialize ~path () in
     let waiter, wakener = Lwt.task () in
     let rec thread () =
-      let%lwt data = read ~path () in
-      let%lwt () = callback data in
+      let%lwt () = read ?seq callback path in
       thread ()
     in
     add_listener ~path (let%lwt () = waiter in thread ());
-    Lwt.wakeup wakener ()
+    Lwt.return @@ Lwt.wakeup wakener ()
 
-  let read_once ~(callback: string -> unit Lwt.t) path =
-    let () = close path in
+  let read_once ?seq ~(callback: string -> unit Lwt.t) path =
+    let%lwt () = close path in
     let callback s =
       let%lwt () = callback s in
       let%lwt () = Lwt.pause () in
-      let () = close path in
+      let%lwt () = close path in
       Lwt.return_unit
     in
-    let () = background_read ~callback path in
+    let%lwt () = background_read ?seq ~callback path in
     let%lwt () = Lwt.pause () in
+    let%lwt () = close path in
     Lwt.return_unit
 
-  let listen ?(stop = ref false) ~(callback: string -> unit Lwt.t) path =
-    let () = background_read ~callback path in
+  let listen ?seq ?(stop = ref false) ~(callback: string -> unit Lwt.t) path =
+    let%lwt () = background_read ?seq ~callback path in
     let () = if not !master_switch then master_switch := true in
     let%lwt () =
       while%lwt not !stop && !master_switch do
         Lwt.pause ()
       done
     in
-    let () = close path in
+    let%lwt () = close path in
     Lwt.pause ()
 
   let write ~path datas =
     try
-      Lwt_io.with_file ~flags:Unix.[ O_CREAT; O_WRONLY; O_NONBLOCK ] ~mode:(Lwt_io.Output) path (fun oc -> Lwt_io.fprint oc datas)
+      Lwt_io.(with_file ~mode:Output) ~flags:Unix.[ O_CREAT; O_WRONLY; O_NONBLOCK ] path (fun oc -> Fmt.pr "là@."; Lwt_io.fprint oc datas)
     with e -> Lwt.fail (Fifo_write_error e)
 
   let stop_all () =
     master_switch := false;
-    Db.clear ~callback:terminate ()
+    let%lwt () = Lwt_list.iter_p (fun t -> close t.path) !Db.db in
+    Db.clear ()
 
 end
 
 module Ezfifos = Driver(List_db)
 include Ezfifos
-
-let () =
-  Lwt_main.at_exit stop_all

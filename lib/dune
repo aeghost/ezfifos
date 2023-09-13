@@ -2,6 +2,6 @@
  (name ezfifos_lwt)
  (public_name ezfifos-lwt)
  (modules ezfifos_lwt)
- (libraries lwt.unix lwt fileutils)
+ (libraries fmt lwt.unix lwt fileutils)
  (preprocess
   (pps lwt_ppx)))

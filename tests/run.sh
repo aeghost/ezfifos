@@ -1,0 +1,1 @@
+dune exec ./tests/tests.exe --profile=release ./tests/test_fifo

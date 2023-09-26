@@ -2,13 +2,11 @@
 
 ## Objectives
 
-Read FileDescr FIFOs efficiantly.
-
-Asynchronous programming needs Async, LWT or EIO.
-
-And LWT is compatible with EIO through Lwt_eio lib, and Async.
+Read FileDescr FIFOs quickly.
 
 EZ to do, so it should stay EZ to use.
+
+I used LWT because it is cool and compatible with others libs (Async/EIO)
 
 ## Usage
 
@@ -19,9 +17,13 @@ let () =
   Ezfifos_lwt.background_read ~callback:(fun s -> print_endline s; Lwt.return_unit) "/path/to/fifo"
 ```
 
-The `background_read` function will declare a passive thread that will `read` and bind `callback` to the read result.
+The `background_read` function will declare a passive thread that will `read` any content at `/path/to/fifo` and bind a `callback` to the read result.
 
-It will be executed if the binary has nothing to do (`Lwt.pause ()`).
+The `callback` is called to every LINE read in the FIFO.
+
+This is a passive thread, binary can live its life, this is not a server, it will stop if there is nothing else to do.
+
+For a server use `listen`
 
 ### Listen-passive server
 
@@ -35,13 +37,13 @@ let () =
   Lwt_main.run Lwt.(join [ server (); ... ])
 ```
 
-The `listen` function will declare a non-stopping, non-blockant server that will bind `callback` to read result.
+The `listen` function will declare a non-stopping, non-blockant server that will bind `callback` to every LINE read in the FIFO.
 
-It will run until FIFO is empty and then wait for more.
+It will run on the FIFO until it is empty and then wait for more content.
 
 It will be closed `at_exit` or when calling `close path` or `stop_all ()`.
 
-You can stop it by switching the `stop` ref to `true`
+You can stop it by switching the `stop` ref to `true`, stop is a non mandatory value, if None, server will run for ever
 
 ### Read once
 
@@ -60,7 +62,11 @@ let () =
   Lwt_main.run Ezfifos_lwt.(write ~path:"/path/to/fifo" "datas")
 ```
 
-It will write `datas` to FIFO, similar to `Printf.fprintf`, doubted to add the fun, but at least it is using cool `Lwt_io`.
+It will write `datas` to FIFO, similar to `Printf.fprintf`, doubted to add the fun, but at least it is using cool `Lwt_io` content.
+
+## Good practices
+
+You can find client/server exemple with common Protocol wrapping good practices.
 
 ## Notes
 

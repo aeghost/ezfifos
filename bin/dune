@@ -1,5 +1,0 @@
-(executable
- (name demo)
- (libraries ezfifos-lwt str lwt.unix)
- (preprocess
-  (pps lwt_ppx)))

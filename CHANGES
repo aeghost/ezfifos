@@ -1,4 +1,9 @@
-- Add Server feature
-- Add better README
-
-- TODO: repair TESTS: It fails because Lwt.with_file, can't be called in In and Out in the same file (maybe limitation of Lwt implementation)
+- 0.1.0: It works on my machine
+- 0.2.0: Add Server feature
+- 0.2.1: Add better README
+- 0.3.0: Fixed read
+- 0.3.1: Fixed tests
+- 0.3.2: Fixed CPU consumption issue with Lwt.pause ()
+- 0.3.3: Edited README for clearer instruction
+- 0.3.4: Edited demo.ml
+- 0.4.0: Fixed Write + add client/server good practices exemple

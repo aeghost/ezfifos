@@ -145,7 +145,7 @@ module Driver (Db : DB
     let () = if not !master_switch then master_switch := true in
     let%lwt () =
       while%lwt not !stop && !master_switch do
-        Lwt_unix.(sleep 1.)
+        Lwt_unix.sleep 1.
       done
     in
     let%lwt () = close path in
@@ -153,7 +153,11 @@ module Driver (Db : DB
 
   let write ~path datas =
     try
-      Lwt_io.(with_file ~mode:Output) ~flags:Unix.[ O_CREAT; O_WRONLY; O_NONBLOCK; O_APPEND ] path (fun oc -> Lwt_io.fprint oc datas)
+      let oc = open_out path in
+      let () = Printf.fprintf oc "%s\n" datas in
+      let () = close_out oc in
+      Lwt.return_unit
+    (* Lwt_io.(with_file ~mode:Output) ~flags:Unix.[ O_CREAT; O_WRONLY; O_NONBLOCK; O_APPEND ] path (fun oc -> Lwt_io.fprint oc datas) *)
     with e -> Lwt.fail (Fifo_write_error e)
 
   let stop_all () =
